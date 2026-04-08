@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理者ページ｜都島放射線科クリニック</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500&family=Noto+Serif+JP:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --forest: #2d4a3e; --sage: #5a7a6a; --mist: #b8cfc4;
+    --cream: #f4f0e8; --sand: #e8e0d0; --earth: #8c7b6b;
+    --text: #2a2a2a; --white: #fafaf8;
+  }
+  body { font-family: 'Noto Sans JP', sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; }
+
+  /* HEADER */
+  header {
+    background: var(--forest); padding: 1rem 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .header-logo { font-family: 'Noto Serif JP', serif; font-size: 1rem; color: var(--mist); font-weight: 300; }
+  .header-badge { font-size: 0.72rem; background: rgba(184,207,196,0.2); color: var(--mist); padding: 3px 10px; border-radius: 2px; border: 1px solid rgba(184,207,196,0.3); }
+
+  .main { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  /* CARDS */
+  .card { background: var(--white); border-radius: 6px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid rgba(90,122,106,0.15); }
+  .card-title { font-family: 'Noto Serif JP', serif; font-size: 1rem; font-weight: 400; color: var(--forest); margin-bottom: 1.2rem; padding-bottom: 0.7rem; border-bottom: 1px solid var(--sand); display: flex; align-items: center; gap: 0.5rem; }
+
+  /* CALENDAR */
+  .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .cal-month { font-size: 1rem; font-weight: 500; color: var(--forest); }
+  .cal-nav { display: flex; gap: 6px; }
+  .cal-nav button { background: none; border: 1px solid var(--mist); border-radius: 3px; padding: 4px 12px; cursor: pointer; font-size: 0.82rem; color: var(--sage); transition: background 0.2s; }
+  .cal-nav button:hover { background: var(--sand); }
+  .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
+  .cal-dow { text-align: center; font-size: 0.7rem; color: var(--sage); padding: 4px 0; font-weight: 500; }
+  .cal-day {
+    aspect-ratio: 1; border-radius: 4px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    border: 1px solid transparent; font-size: 0.72rem; transition: all 0.15s;
+  }
+  .cal-day.clickable { cursor: pointer; }
+  .cal-day.past { opacity: 0.3; }
+  .cal-day .dn { font-size: 0.78rem; font-weight: 500; line-height: 1; }
+  .cal-day .db { font-size: 0.6rem; margin-top: 2px; }
+  .cal-day.s-open { background: #EAF3DE; border-color: #97C459; }
+  .cal-day.s-open .dn, .cal-day.s-open .db { color: #3B6D11; }
+  .cal-day.s-open:hover { background: #C0DD97; }
+  .cal-day.s-few { background: #FAEEDA; border-color: #EF9F27; }
+  .cal-day.s-few .dn, .cal-day.s-few .db { color: #633806; }
+  .cal-day.s-few:hover { background: #FAC775; }
+  .cal-day.s-full { background: #FCEBEB; border-color: #F09595; }
+  .cal-day.s-full .dn, .cal-day.s-full .db { color: #791F1F; }
+  .cal-day.s-closed { background: #f0ede6; }
+  .cal-day.s-closed .dn { color: #aaa; } .cal-day.s-closed .db { color: #ccc; }
+  .cal-day.selected { outline: 2px solid var(--forest); outline-offset: 1px; }
+  .legend { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: var(--sage); }
+  .ld { width: 10px; height: 10px; border-radius: 2px; }
+  .ld.open { background: #9FE1CB; border: 1px solid #1D9E75; }
+  .ld.few  { background: #FAC775; border: 1px solid #BA7517; }
+  .ld.full { background: #F7C1C1; border: 1px solid #E24B4A; }
+  .ld.cls  { background: #e0ddd8; border: 1px solid #ccc; }
+
+  /* SLOT EDITOR */
+  .slot-editor { display: none; }
+  .slot-editor.active { display: block; }
+  .slot-date-label { font-size: 0.95rem; font-weight: 500; color: var(--forest); margin-bottom: 1rem; }
+  .slot-table { width: 100%; border-collapse: collapse; }
+  .slot-table th { font-size: 0.72rem; color: var(--sage); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--sand); text-align: center; }
+  .slot-table th:first-child { text-align: left; }
+  .slot-table td { padding: 7px 8px; border-bottom: 1px solid #f0ede6; font-size: 0.82rem; vertical-align: middle; text-align: center; }
+  .slot-table td:first-child { text-align: left; font-weight: 500; color: var(--forest); }
+  .slot-table tr:last-child td { border-bottom: none; }
+  .num-input { width: 52px; text-align: center; padding: 4px 6px; border: 1px solid var(--mist); border-radius: 3px; font-size: 0.82rem; font-family: 'Noto Sans JP', sans-serif; }
+  .num-input:focus { outline: none; border-color: var(--sage); }
+  .status-badge {
+    display: inline-block; font-size: 0.72rem; padding: 2px 8px; border-radius: 10px; font-weight: 500;
+  }
+  .status-badge.open { background: #EAF3DE; color: #3B6D11; }
+  .status-badge.few  { background: #FAEEDA; color: #633806; }
+  .status-badge.full { background: #FCEBEB; color: #A32D2D; }
+  .status-badge.closed { background: #f0ede6; color: #999; }
+  .toggle-btn {
+    font-size: 0.72rem; padding: 4px 12px; border-radius: 3px;
+    border: 1px solid; cursor: pointer; font-family: 'Noto Sans JP', sans-serif;
+    transition: all 0.2s;
+  }
+  .toggle-btn.is-open { border-color: #97C459; color: #3B6D11; background: #EAF3DE; }
+  .toggle-btn.is-open:hover { background: #C0DD97; }
+  .toggle-btn.is-closed { border-color: #F09595; color: #A32D2D; background: #FCEBEB; }
+  .toggle-btn.is-closed:hover { background: #F7C1C1; }
+  .save-indicator { font-size: 0.72rem; color: var(--sage); margin-left: 6px; opacity: 0; transition: opacity 0.3s; }
+  .save-indicator.show { opacity: 1; }
+
+  /* STATS */
+  .stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; }
+  .stat-card { background: var(--cream); border-radius: 4px; padding: 1rem; text-align: center; }
+  .stat-num { font-family: 'Noto Serif JP', serif; font-size: 1.8rem; font-weight: 300; color: var(--forest); }
+  .stat-label { font-size: 0.72rem; color: var(--sage); margin-top: 0.3rem; }
+
+  /* LOADING */
+  .loading { text-align: center; padding: 1.5rem; font-size: 0.82rem; color: var(--sage); }
+  .dot-anim::after { content: ''; animation: dots 1.2s infinite; }
+  @keyframes dots { 0%{content:'';} 33%{content:'.';} 66%{content:'..';} 100%{content:'...';} }
+
+  /* BACK LINK */
+  .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--sage); text-decoration: none; margin-bottom: 1.5rem; transition: color 0.2s; }
+  .back-link:hover { color: var(--forest); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-logo">都島放射線科クリニック</div>
+  <div class="header-badge">管理者ページ</div>
+</header>
+
+<div class="main">
+  <a href="tsurushima-clinic.html" class="back-link">← 患者向けページを開く</a>
+
+  <!-- STATS -->
+  <div class="card">
+    <div class="card-title">📊 本日の予約状況</div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-num" id="stat-total">—</div>
+        <div class="stat-label">本日の総予約数</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="stat-open">—</div>
+        <div class="stat-label">空きコマ数</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="stat-full">—</div>
+        <div class="stat-label">満・閉コマ数</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div class="card">
+    <div class="card-title">📅 日付を選択</div>
+    <div class="legend">
+      <div class="legend-item"><div class="ld open"></div>空きあり</div>
+      <div class="legend-item"><div class="ld few"></div>残りわずか</div>
+      <div class="legend-item"><div class="ld full"></div>満</div>
+      <div class="legend-item"><div class="ld cls"></div>休診</div>
+    </div>
+    <div id="cal-loading" class="loading" style="display:none;"><span class="dot-anim">読み込み中</span></div>
+    <div class="cal-header">
+      <div class="cal-month" id="adm-cal-title"></div>
+      <div class="cal-nav">
+        <button onclick="admChangeMonth(-1)">＜ 前月</button>
+        <button onclick="admChangeMonth(1)">次月 ＞</button>
+      </div>
+    </div>
+    <div class="cal-grid" id="adm-cal-grid"></div>
+  </div>
+
+  <!-- SLOT EDITOR -->
+  <div class="card slot-editor" id="slot-editor">
+    <div class="card-title">
+      ⏰ コマ管理
+      <span class="save-indicator" id="save-indicator">✓ 保存しました</span>
+    </div>
+    <div class="slot-date-label" id="adm-slot-date"></div>
+    <div id="adm-loading" class="loading"><span class="dot-anim">読み込み中</span></div>
+    <table class="slot-table" id="adm-slot-table" style="display:none;">
+      <thead>
+        <tr>
+          <th>時間</th>
+          <th>定員</th>
+          <th>予約数</th>
+          <th>埋まり率</th>
+          <th>状態</th>
+          <th>開閉</th>
+        </tr>
+      </thead>
+      <tbody id="adm-slot-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vREV-iZqR2Z55nBnziQ4d5sx0IbOHaWzU6hSdfBc2voZGUkO9-JNDULkvIpbl4yXfv86-3X63uiFjjo/pub?gid=0&single=true&output=csv';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbx-ff1srLe66B8-gCxaFEtKnJ52lvGIAwP6JB4UiDwCZaix1dMB3KpsSfatUfr0exeG/exec';
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vREV-iZqR2Z55nBnziQ4d5sx0IbOHaWzU6hSdfBc2voZGUkO9-JNDULkvIpbl4yXfv86-3X63uiFjjo/pub?gid=0&single=true&output=csv';
+const HOURS = [9,10,11,12,13,14,15,16];
+const DOW = ['日','月','火','水','木','金','土'];
+let today = new Date();
+let cur = new Date(today.getFullYear(), today.getMonth(), 1);
+let slotData = {};
+let activeDay = null;
+let monthCache = {};
+
+function parseCSV(text) {
+  var lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  var rows = [];
+  for (var i = 1; i < lines.length; i++) {
+    var cols = lines[i].split(',');
+    if (cols.length < 5) continue;
+    rows.push({
+      date:   cols[0].trim().replace(/"/g,''),
+      hour:   cols[1].trim().replace(/"/g,''),
+      cap:    cols[2].trim().replace(/"/g,''),
+      booked: cols[3].trim().replace(/"/g,''),
+      closed: cols[4].trim().replace(/"/g,'')
+    });
+  }
+  return rows;
+}
+
+function slotKey(y,m,d,h){ return y+'_'+m+'_'+d+'_'+h; }
+
+function slotStatus(s){
+  if(s.closed) return 'closed';
+  if(s.booked >= s.cap) return 'full';
+  if(s.cap > 0 && s.booked/s.cap >= 0.8) return 'few';
+  return 'open';
+}
+
+function initDay(y,m,d){
+  var dow = new Date(y,m,d).getDay();
+  HOURS.forEach(function(h){
+    var k = slotKey(y,m,d,h);
+    if(!slotData[k]){
+      var closed = (dow===0)||(h===12);
+      slotData[k] = {cap:3, booked:0, closed:closed};
+    }
+  });
+}
+
+function dayStatus(y,m,d){
+  initDay(y,m,d);
+  var statuses = HOURS.map(function(h){ return slotStatus(slotData[slotKey(y,m,d,h)]); });
+  if(statuses.every(function(s){return s==='closed';})) return 'closed';
+  if(statuses.filter(function(s){return s!=='closed';}).every(function(s){return s==='full';})) return 'full';
+  if(statuses.some(function(s){return s==='few'||s==='full';})) return 'few';
+  return 'open';
+}
+
+function renderCal(){
+  var y=cur.getFullYear(), m=cur.getMonth();
+  document.getElementById('adm-cal-title').textContent = y+'年'+(m+1)+'月';
+  var grid = document.getElementById('adm-cal-grid');
+  var html = DOW.map(function(d){ return '<div class="cal-dow">'+d+'</div>'; }).join('');
+  var first = new Date(y,m,1).getDay();
+  for(var i=0;i<first;i++) html += '<div></div>';
+  var days = new Date(y,m+1,0).getDate();
+  var todayMs = new Date(today.getFullYear(),today.getMonth(),today.getDate()).getTime();
+  var badgeMap = {open:'◯',few:'△',full:'✕',closed:'—'};
+  for(var d=1;d<=days;d++){
+    var isPast = new Date(y,m,d).getTime() < todayMs;
+    var st = dayStatus(y,m,d);
+    var op = isPast ? ' past' : '';
+    var cl = (!isPast) ? ' clickable' : '';
+    var sel = (activeDay && activeDay.y===y && activeDay.m===m && activeDay.d===d) ? ' selected' : '';
+    var click = !isPast ? 'onclick="openDay('+y+','+m+','+d+')"' : '';
+    html += '<div class="cal-day s-'+st+op+cl+sel+'" '+click+'>'
+          + '<span class="dn">'+d+'</span>'
+          + '<span class="db">'+badgeMap[st]+'</span>'
+          + '</div>';
+  }
+  grid.innerHTML = html;
+}
+
+var monthLoaded = {};
+
+async function loadMonth(y, m) {
+  var cacheKey = y+'_'+m;
+  if(monthLoaded[cacheKey]) return;
+  try {
+    var res = await fetch(GAS_URL+'?action=readMonth&year='+y+'&month='+m, {mode:'cors'});
+    var json = await res.json();
+    if(json.status !== 'ok') return;
+    // デフォルト初期化
+    var days = new Date(y,m+1,0).getDate();
+    for(var d=1;d<=days;d++) initDay(y,m,d);
+    // GASデータで上書き
+    json.data.forEach(function(row){
+      var parts = String(row.date).split('/');
+      if(parts.length < 3) return;
+      var ry=parseInt(parts[0]), rm=parseInt(parts[1])-1, rd=parseInt(parts[2]), rh=parseInt(row.hour);
+      if(ry===y && rm===m){
+        var k = slotKey(y,m,rd,rh);
+        slotData[k] = {cap:parseInt(row.cap)||3, booked:parseInt(row.booked)||0, closed:row.closed===true||row.closed==='true'};
+      }
+    });
+    monthLoaded[cacheKey] = true;
+  } catch(e){ console.warn('loadMonth failed',e); }
+}
+
+async function saveToGAS(k){
+  var s = slotData[k];
+  if(!s) return;
+  var parts = k.split('_');
+  var y=parts[0], m=parts[1], d=parts[2], h=parts[3];
+  var dateStr = y+'/'+(parseInt(m)+1)+'/'+d;
+  try {
+    await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'write',
+        date:   dateStr,
+        hour:   parseInt(h),
+        cap:    s.cap,
+        booked: s.booked,
+        closed: s.closed
+      })
+    });
+    monthCache = {}; // キャッシュクリアして次回再読み込み
+    showSaveIndicator();
+  } catch(e){ console.warn('save failed',e); }
+}
+
+function showSaveIndicator(){
+  var el = document.getElementById('save-indicator');
+  el.classList.add('show');
+  setTimeout(function(){ el.classList.remove('show'); }, 2000);
+}
+
+function openDay(y,m,d){
+  activeDay = {y:y,m:m,d:d};
+  renderCal();
+  var editor = document.getElementById('slot-editor');
+  editor.classList.add('active');
+  document.getElementById('adm-slot-date').textContent = y+'年'+(m+1)+'月'+d+'日（'+DOW[new Date(y,m,d).getDay()]+'）';
+  document.getElementById('adm-loading').style.display = 'none';
+  renderSlotTable(y,m,d);
+  updateStats(y,m,d);
+  editor.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function renderSlotTable(y,m,d){
+  document.getElementById('adm-loading').style.display = 'none';
+  document.getElementById('adm-slot-table').style.display = 'table';
+  var tbody = document.getElementById('adm-slot-tbody');
+  tbody.innerHTML = '';
+  HOURS.forEach(function(h){
+    var k = slotKey(y,m,d,h);
+    var s = slotData[k];
+    var st = slotStatus(s);
+    var pct = s.closed ? '—' : Math.round(s.booked/s.cap*100)+'%';
+    var stLabel = {open:'◯ 空きあり',few:'△ 残りわずか',full:'✕ 満',closed:'— 休診'}[st];
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>'+h+':00 〜 '+(h+1)+':00</td>'
+      + '<td><input class="num-input" id="cap-'+k+'" type="number" min="1" max="20" value="'+s.cap+'"></td>'
+      + '<td><input class="num-input" id="bkd-'+k+'" type="number" min="0" max="20" value="'+s.booked+'"></td>'
+      + '<td style="font-size:0.8rem;color:'+(s.closed?'#aaa':'var(--forest)')+';">'+pct+'</td>'
+      + '<td><span class="status-badge '+st+'" id="st-'+k+'">'+stLabel+'</span></td>'
+      + '<td><button class="toggle-btn '+(s.closed?'is-closed':'is-open')+'" id="btn-'+k+'">'+(s.closed?'開ける':'閉じる')+'</button></td>';
+    tbody.appendChild(tr);
+
+    tr.querySelector('#cap-'+k).addEventListener('change', function(){
+      slotData[k].cap = Math.max(1, parseInt(this.value)||1);
+      refreshRow(k,y,m,d);
+      saveToGAS(k);
+    });
+    tr.querySelector('#bkd-'+k).addEventListener('change', function(){
+      slotData[k].booked = Math.max(0, parseInt(this.value)||0);
+      refreshRow(k,y,m,d);
+      saveToGAS(k);
+    });
+    tr.querySelector('#btn-'+k).addEventListener('click', function(){
+      slotData[k].closed = !slotData[k].closed;
+      refreshRow(k,y,m,d);
+      saveToGAS(k);
+    });
+  });
+}
+
+function refreshRow(k,y,m,d){
+  var s = slotData[k];
+  var st = slotStatus(s);
+  var stLabel = {open:'◯ 空きあり',few:'△ 残りわずか',full:'✕ 満',closed:'— 休診'}[st];
+  var pct = s.closed ? '—' : Math.round(s.booked/s.cap*100)+'%';
+  var stEl = document.getElementById('st-'+k);
+  if(stEl){ stEl.className='status-badge '+st; stEl.textContent=stLabel; }
+  var btnEl = document.getElementById('btn-'+k);
+  if(btnEl){ btnEl.className='toggle-btn '+(s.closed?'is-closed':'is-open'); btnEl.textContent=(s.closed?'開ける':'閉じる'); }
+  var pctCells = document.querySelectorAll('#adm-slot-tbody tr td:nth-child(4)');
+  var h = parseInt(k.split('_')[3]);
+  var idx = HOURS.indexOf(h);
+  if(pctCells[idx]) pctCells[idx].textContent = pct;
+  updateStats(y,m,d);
+  renderCal();
+}
+
+function updateStats(y,m,d){
+  var total=0, openCount=0, fullCount=0;
+  HOURS.forEach(function(h){
+    var k = slotKey(y,m,d,h);
+    var s = slotData[k];
+    if(!s) return;
+    var st = slotStatus(s);
+    if(!s.closed) total += s.booked;
+    if(st==='open'||st==='few') openCount++;
+    if(st==='full'||st==='closed') fullCount++;
+  });
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-open').textContent = openCount;
+  document.getElementById('stat-full').textContent = fullCount;
+}
+
+async function admChangeMonth(dir){
+  cur = new Date(cur.getFullYear(), cur.getMonth()+dir, 1);
+  var y=cur.getFullYear(), m=cur.getMonth();
+  await loadMonth(y, m);
+  renderCal();
+}
+
+// init: 当月を一括ロードしてからカレンダー描画
+(async function(){
+  var y=cur.getFullYear(), m=cur.getMonth();
+  await loadMonth(y, m);
+  renderCal();
+  // 今日の統計
+  var td=today.getDate();
+  updateStats(y, m, td);
+})();
+</script>
+</body>
+</html>
