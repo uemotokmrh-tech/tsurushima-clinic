@@ -186,7 +186,6 @@
 
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbx-ff1srLe66B8-gCxaFEtKnJ52lvGIAwP6JB4UiDwCZaix1dMB3KpsSfatUfr0exeG/exec';
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vREV-iZqR2Z55nBnziQ4d5sx0IbOHaWzU6hSdfBc2voZGUkO9-JNDULkvIpbl4yXfv86-3X63uiFjjo/pub?gid=0&single=true&output=csv';
 const HOURS = [9,10,11,12,13,14,15,16];
 const DOW = ['日','月','火','水','木','金','土'];
 let today = new Date();
@@ -195,22 +194,12 @@ let slotData = {};
 let activeDay = null;
 let monthCache = {};
 
-function parseCSV(text) {
-  var lines = text.trim().split('\n');
-  if (lines.length < 2) return [];
-  var rows = [];
-  for (var i = 1; i < lines.length; i++) {
-    var cols = lines[i].split(',');
-    if (cols.length < 5) continue;
-    rows.push({
-      date:   cols[0].trim().replace(/"/g,''),
-      hour:   cols[1].trim().replace(/"/g,''),
-      cap:    cols[2].trim().replace(/"/g,''),
-      booked: cols[3].trim().replace(/"/g,''),
-      closed: cols[4].trim().replace(/"/g,'')
-    });
-  }
-  return rows;
+async function gasCall(params) {
+  var url = GAS_URL + '?' + Object.keys(params).map(function(k){
+    return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+  }).join('&');
+  var res = await fetch(url, {method:'GET'});
+  return await res.json();
 }
 
 function slotKey(y,m,d,h){ return y+'_'+m+'_'+d+'_'+h; }
@@ -251,11 +240,10 @@ async function loadMonth(y,m){
   if(monthCache[ck]) return;
   showCalLoading(true);
   try {
-    var res = await fetch(CSV_URL + '&t=' + Date.now());
-    var text = await res.text();
-    var rows = parseCSV(text);
+    var json = await gasCall({action:'readMonth', year:y, month:m});
+    if(json.status !== 'ok') return;
     initMonth(y,m);
-    rows.forEach(function(row){
+    json.data.forEach(function(row){
       var parts = String(row.date).split('/');
       if(parts.length < 3) return;
       var ry=parseInt(parts[0]), rm=parseInt(parts[1])-1, rd=parseInt(parts[2]), rh=parseInt(row.hour);
@@ -264,17 +252,45 @@ async function loadMonth(y,m){
       slotData[k] = {
         cap:    parseInt(row.cap)||3,
         booked: parseInt(row.booked)||0,
-        closed: row.closed==='TRUE'||row.closed==='true'
+        closed: row.closed===true||row.closed==='true'||row.closed==='TRUE'
       };
     });
     monthCache[ck] = true;
-  } catch(e){ console.warn('CSV loadMonth failed',e); }
+  } catch(e){ console.warn('GAS loadMonth failed',e); }
   showCalLoading(false);
+}
+
+async function saveToGAS(k){
+  var s = slotData[k];
+  if(!s) return;
+  var parts = k.split('_');
+  var y=parts[0], m=parts[1], d=parts[2], h=parts[3];
+  var dateStr = y+'/'+(parseInt(m)+1)+'/'+d;
+  try {
+    var json = await gasCall({
+      action: 'write',
+      date:   dateStr,
+      hour:   h,
+      cap:    s.cap,
+      booked: s.booked,
+      closed: s.closed
+    });
+    if(json.status === 'ok') {
+      monthCache = {};
+      showSaveIndicator();
+    }
+  } catch(e){ console.warn('save failed',e); }
 }
 
 function showCalLoading(flag){
   var el = document.getElementById('cal-loading');
   if(el) el.style.display = flag ? 'block' : 'none';
+}
+
+function showSaveIndicator(){
+  var el = document.getElementById('save-indicator');
+  el.classList.add('show');
+  setTimeout(function(){ el.classList.remove('show'); }, 2000);
 }
 
 function renderCal(){
@@ -300,32 +316,6 @@ function renderCal(){
            + '</div>';
   }
   grid.innerHTML = html2;
-}
-
-async function saveToGAS(k){
-  var s = slotData[k];
-  if(!s) return;
-  var parts = k.split('_');
-  var y=parts[0], m=parts[1], d=parts[2], h=parts[3];
-  var dateStr = y+'/'+(parseInt(m)+1)+'/'+d;
-  var url = GAS_URL
-    + '?action=write'
-    + '&date='   + encodeURIComponent(dateStr)
-    + '&hour='   + encodeURIComponent(h)
-    + '&cap='    + encodeURIComponent(s.cap)
-    + '&booked=' + encodeURIComponent(s.booked)
-    + '&closed=' + encodeURIComponent(s.closed);
-  try {
-    await fetch(url, {method:'GET', mode:'no-cors'});
-    monthCache = {};
-    showSaveIndicator();
-  } catch(e){ console.warn('save failed',e); }
-}
-
-function showSaveIndicator(){
-  var el = document.getElementById('save-indicator');
-  el.classList.add('show');
-  setTimeout(function(){ el.classList.remove('show'); }, 2000);
 }
 
 function openDay(y,m,d){
@@ -412,7 +402,6 @@ async function admChangeMonth(dir){
   renderCal();
 }
 
-// 起動時
 (async function(){
   var y=cur.getFullYear(), m=cur.getMonth();
   await loadMonth(y,m);
